@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stitch-tools"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "faster-whisper",
+    "fpdf2",
+    "pydub",
+    "manim",
+]
+
+[project.scripts]
+insert_silences = "insert_silences:main"
+extract_voiceovers = "extract_voiceovers:main"
+stitch_tools = "stitch_tools:main"
+
+[tool.setuptools]
+py-modules = ["insert_silences", "extract_voiceovers", "stitch_tools", "dir_config", "Ext_Tools"]

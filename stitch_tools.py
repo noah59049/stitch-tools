@@ -1,0 +1,132 @@
+#!/usr/bin/env python3
+"""
+stitch_tools — Project scaffolding for manim+voiceover videos.
+
+Commands:
+    stitch_tools init           Set up directory structure for a new video project
+    stitch_tools add <stem>     Add a new manim scene file
+"""
+
+import argparse
+import sys
+from pathlib import Path
+
+import dir_config
+
+SCENES_FILE = "scenes.txt"
+
+GITIGNORE_ENTRIES = ["podcasts/", "raw_voiceovers/", "transcripts/", "cache_dir/", "media/"]
+
+SCENE_TEMPLATE = """\
+import numpy as np
+from manim import *
+from manim_voiceover import *
+from manim_voiceover.services.stitcher import _StitcherService as StitcherService
+import dir_config
+
+
+class {class_name}(VoiceoverScene):
+    def construct(self):
+        self.set_speech_service(StitcherService(
+            dir_config.path_to_podcast("{stem}"),
+            cache_dir=dir_config.get_cache_dir(),
+            min_silence_len=2000,
+            keep_silence=(0, 0),
+        ))
+"""
+
+
+def _stem_to_class_name(stem: str) -> str:
+    return "".join(word.capitalize() for word in stem.split("_"))
+
+
+def _read_scenes(scenes_path: Path) -> list[str]:
+    if not scenes_path.exists():
+        return []
+    return [s for s in scenes_path.read_text().splitlines() if s.strip()]
+
+
+def cmd_init(args):
+    wd = Path.cwd()
+
+    for d in ["podcasts", "raw_voiceovers", "transcripts", "cache_dir"]:
+        (wd / d).mkdir(exist_ok=True)
+        print(f"Created {d}/")
+
+    gitignore_path = wd / ".gitignore"
+    existing = gitignore_path.read_text() if gitignore_path.exists() else ""
+    to_add = [e for e in GITIGNORE_ENTRIES if e not in existing]
+    if to_add:
+        with gitignore_path.open("a") as f:
+            if existing and not existing.endswith("\n"):
+                f.write("\n")
+            for entry in to_add:
+                f.write(entry + "\n")
+        print(f"Added to .gitignore: {', '.join(to_add)}")
+    else:
+        print(".gitignore already up to date")
+
+    scenes_path = wd / SCENES_FILE
+    if not scenes_path.exists():
+        scenes_path.write_text("")
+        print(f"Created {SCENES_FILE}")
+
+
+def cmd_add(args):
+    wd = Path.cwd()
+    stem = args.stem
+    class_name = args.class_name or _stem_to_class_name(stem)
+
+    scene_file = wd / f"{stem}.py"
+    if scene_file.exists() and not args.force:
+        print(f"Error: {scene_file.name} already exists. Use --force to overwrite.", file=sys.stderr)
+        return 1
+    scene_file.write_text(SCENE_TEMPLATE.format(stem=stem, class_name=class_name))
+    print(f"Created {stem}.py (class {class_name})")
+
+    scenes_path = wd / SCENES_FILE
+    scenes = _read_scenes(scenes_path)
+
+    if stem in scenes:
+        print(f"Warning: {stem} already in {SCENES_FILE}", file=sys.stderr)
+    else:
+        if args.position is None:
+            scenes.append(stem)
+        else:
+            scenes.insert(args.position, stem)
+        scenes_path.write_text("\n".join(scenes) + "\n")
+        print(f"Added {stem} to {SCENES_FILE} (position {scenes.index(stem)})")
+
+
+def main():
+    p = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    sub = p.add_subparsers(dest="command")
+
+    sub.add_parser("init", help="Set up directory structure for a new project")
+
+    add_p = sub.add_parser("add", help="Add a new manim scene")
+    add_p.add_argument("stem", help="File stem, e.g. 'global_max' if the file is called 'global_max.py'")
+    add_p.add_argument("--class-name", help="Override class name (default: CamelCase of stem)")
+    add_p.add_argument(
+        "--position",
+        type=int,
+        help="Position in scenes list, 0-based (default: end)",
+    )
+    add_p.add_argument("--force", action="store_true", help="Overwrite existing .py file")
+
+    args = p.parse_args()
+
+    if args.command == "init":
+        return cmd_init(args)
+    elif args.command == "add":
+        return cmd_add(args)
+    else:
+        p.print_help()
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
