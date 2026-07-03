@@ -8,6 +8,8 @@ Commands:
 """
 
 import argparse
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -70,6 +72,32 @@ def cmd_init(args):
     if not scenes_path.exists():
         scenes_path.write_text("")
         print(f"Created {SCENES_FILE}")
+
+    _ensure_deps(wd)
+
+
+def _ensure_deps(wd: Path) -> None:
+    """Make sure the scaffolded scenes' imports (manim, manim_voiceover) are installed.
+
+    StitcherService itself needs nothing beyond manim_voiceover: pydub is already
+    one of its own dependencies, so there's no third package to add here.
+    """
+    if shutil.which("uv") is None:
+        print(
+            "Warning: 'uv' not found on PATH; skipping dependency install. "
+            "Install manim and manim_voiceover manually.",
+            file=sys.stderr,
+        )
+        return
+
+    print("Running: uv add manim manim_voiceover")
+    result = subprocess.run(["uv", "add", "manim", "manim_voiceover"], cwd=wd)
+    if result.returncode != 0:
+        print(
+            "Warning: 'uv add manim manim_voiceover' failed (no pyproject.toml here?). "
+            "Run 'uv init' first, or install manim/manim_voiceover manually.",
+            file=sys.stderr,
+        )
 
 
 def cmd_add(args):
