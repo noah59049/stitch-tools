@@ -4,18 +4,21 @@ This repo is designed for use with `StitcherService` in Manim. This enables user
 `insert_silences` reads the text of the manim script, transcribes the voiceover, and inserts silences in between the spoken words of the voiceover chunks. It is moderately robust to mis-speaking words.
 It is currently actively under development.
 
-## How to use
+## Prerequisites
+- Python >= 3.11
+- `ffmpeg` on your PATH (used by `pydub` for audio conversion). Install with `brew install ffmpeg` (macOS) or `apt install ffmpeg` (Linux).
+- It is strongly recommended to use this repo with `uv`.
 
-It is strongly recommended to use this repo with `uv`.
+## How to use
 
 1. Create a new directory for your project.
 2. Type `uv init`
 3. Add this project: `uv add git+https://github.com/noah59049/stitch-tools.git`
-4. type `stitch_tools init`
+4. Type `stitch_tools init`. This creates the `podcasts/`, `raw_voiceovers/`, `transcripts/`, and `cache_dir/` directories, adds them (plus `media/`) to `.gitignore`, creates an empty `scenes.txt` (a list of scene stems, in order, for a future `stitch_tools run_all` command — see Limitations), and runs `uv add manim manim_voiceover` for you.
 
 ### Create a new scene
 Whenever you want to create a new voiceover scene, run the command
-`stitch_tools add name_of_scene.py`
+`stitch_tools add name_of_scene` (do not include the `.py` extension). This creates `name_of_scene.py` and adds `name_of_scene` to `scenes.txt`.
 
 ### Get a transcript
 If you want to get a PDF of the transcript of the scene, run the command `extract_voiceovers -s scene_name`.
@@ -29,6 +32,10 @@ Supported extensions are `.wav`, `.mp3`, and `.m4a`. However, all files will be 
 Put the audio file in the `raw_voiceovers` directory, then run the command `insert_silences -s scene_name`.
 You are now ready to run your script!
 Internally, `insert_silences` creates an audio file with silences inserted in the `podcasts` directory, and they are named `scene_name_podcast{number}.wav`, with the same pattern of increasing numbers as above.
+
+**Warning:** if your raw voiceover is `.mp3` or `.m4a`, `insert_silences` converts it to `.wav` in place and then **deletes the original file**. Since `raw_voiceovers/` is gitignored, that original recording is not recoverable once deleted.
+
+`insert_silences` also accepts `--silence` (seconds of silence to insert at each line break, default 5.0) and `--model` (faster-whisper model size: `tiny`, `base`, `small`, `medium`, or `large-v3`; default `base` — larger models are slower but more accurate). The first time you use a given model size, faster-whisper downloads it, which requires internet access and may take a while. For more options, type `insert_silences --help`.
 
 It is not necessary to re-record if the transcript has not changed. For example, if you change
 ```
