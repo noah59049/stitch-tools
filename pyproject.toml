@@ -19,4 +19,4 @@ extract_voiceovers = "extract_voiceovers:main"
 stitch_tools = "stitch_tools:main"
 
 [tool.setuptools]
-py-modules = ["insert_silences", "extract_voiceovers", "stitch_tools", "dir_config", "Ext_Tools"]
+py-modules = ["insert_silences", "extract_voiceovers", "stitch_tools", "dir_config", "stitcher_scene", "Ext_Tools"]

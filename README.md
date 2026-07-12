@@ -20,6 +20,17 @@ It is currently actively under development.
 Whenever you want to create a new voiceover scene, run the command
 `stitch_tools add name_of_scene` (do not include the `.py` extension). This creates `name_of_scene.py` and adds `name_of_scene` to `scenes.txt`.
 
+The generated file subclasses `StitcherScene` (from `stitcher_scene.py`) instead of `VoiceoverScene`. Override `construct_scene(self)` instead of `construct(self)` — `StitcherScene.construct()` finds and loads the matching podcast audio (`podcasts/name_of_scene_podcast*.wav`) and calls `self.set_speech_service(...)` for you before running `construct_scene()`.
+
+If no podcast audio exists yet for the scene, `StitcherScene` doesn't error at startup — it prints a warning and leaves the speech service unset, so you can keep writing/running the scene before you've recorded anything. The error is only raised once you actually call `self.voiceover(...)`.
+
+#### Silencing voiceovers
+You can disable voiceovers entirely (no audio, and no error even if the podcast file is missing) in two ways:
+- In code: set `silent = True` on the scene class, or `self.silent = True` before calling `self.voiceover(...)`.
+- From the command line: set the `STITCH_SILENT` environment variable, e.g. `STITCH_SILENT=1 manim -pql name_of_scene.py NameOfScene`. This silences every `StitcherScene` in the process, without editing any code.
+
+While silenced, `self.voiceover(...)` still works as a context manager (so your `with self.voiceover(...):` blocks and animation timing stay intact), it just plays no audio and adds no wait time.
+
 ### Get a transcript
 If you want to get a PDF of the transcript of the scene, run the command `extract_voiceovers -s scene_name`.
 The PDF will be in the `transcripts/` directory. For more options of how to run `extract_voiceovers`, type `extract_voiceovers --help`.
@@ -59,6 +70,4 @@ the `-s` command is short for `--stem`, and such, do not include any file extens
 ## Limitations / Future improvements planned
 - Both `extract_voiceovers` and `insert_silences` only recognize `with self.voiceover("text") as tracker:` as a valid voiceover line. Therefore, this doesn't work well if the voiceover text is calculated at runtime.
 - Detection of mathematical formulae are not very robust; for this reason, it is recommended to write out `cosine of a plus b` rather than `cos(a+b)`, for example.
-- I want to create a subclass of `VoiceoverScene` that reduces the amount of boilerplate in a new scene.
-- Currently, it is required to have an audio clip to run; however, I want the subclass I make to remove that requirement.
 - I plan to create a `stitch_tools run_all` command that runs all the scenes that have been added with `stitch_tools add` in order, then concatenates them into one video. This will use `scenes.txt`.
