@@ -118,6 +118,10 @@ def cmd_add(args):
         scenes_path.write_text("\n".join(scenes) + "\n")
         print(f"Added {stem} to {SCENES_FILE} (position {scenes.index(stem)})")
 
+def cmd_list(args):
+    with open("scenes.txt") as file:
+        print(file.read().strip())
+
 
 def main():
     p = argparse.ArgumentParser(
@@ -127,6 +131,8 @@ def main():
     sub = p.add_subparsers(dest="command")
 
     sub.add_parser("init", help="Set up directory structure for a new project")
+
+    sub.add_parser("list", help="List all the scenes added")
 
     add_p = sub.add_parser("add", help="Add a new manim scene")
     add_p.add_argument("stem", help="File stem, e.g. 'global_max' if the file is called 'global_max.py'")
@@ -142,6 +148,8 @@ def main():
 
     if args.command == "init":
         return cmd_init(args)
+    if args.command == "list":
+        return cmd_list(args)
     elif args.command == "add":
         return cmd_add(args)
     else:
