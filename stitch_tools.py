@@ -8,6 +8,7 @@ Commands:
 """
 
 import argparse
+import re
 import shutil
 import subprocess
 import sys
@@ -18,6 +19,8 @@ import dir_config
 SCENES_FILE = "scenes.txt"
 
 GITIGNORE_ENTRIES = ["podcasts/", "raw_voiceovers/", "transcripts/", "cache_dir/", "media/"]
+
+_SCENE_CLASS_RE = re.compile(r"^class\s+(\w+)\s*\(\s*StitcherScene\s*\)\s*:", re.MULTILINE)
 
 SCENE_TEMPLATE = """\
 import numpy as np
@@ -123,6 +126,91 @@ def cmd_list(args):
         print(file.read().strip())
 
 
+def _find_scene_class(scene_file: Path, stem: str) -> str:
+    match = _SCENE_CLASS_RE.search(scene_file.read_text())
+    if match:
+        return match.group(1)
+    return _stem_to_class_name(stem)
+
+
+def cmd_run_all(args):
+    wd = Path.cwd()
+    scenes = _read_scenes(wd / SCENES_FILE)
+    if not scenes:
+        print(f"No scenes found in {SCENES_FILE}. Add one with 'stitch_tools add <stem>'.", file=sys.stderr)
+        return 1
+
+    media_dir = wd / "media"
+    rendered_paths: dict[str, Path] = {}
+    failed: list[str] = []
+
+    for stem in scenes:
+        scene_file = wd / f"{stem}.py"
+        if not scene_file.exists():
+            print(f"Error: {scene_file.name} not found. Skipping this scene and continuing.", file=sys.stderr)
+            failed.append(stem)
+            continue
+
+        class_name = _find_scene_class(scene_file, stem)
+        output_name = f"{stem}.mp4"
+        print(f"\n=== Rendering {stem} ({class_name}) ===")
+        result = subprocess.run(
+            [
+                sys.executable, "-m", "manim", "render",
+                f"-q{args.quality}",
+                "-o", output_name,
+                str(scene_file), class_name,
+            ],
+            cwd=wd,
+        )
+        if result.returncode != 0:
+            print(
+                f"Error: rendering {stem} failed (manim exited with code {result.returncode}). "
+                f"Continuing with the remaining scenes.",
+                file=sys.stderr,
+            )
+            failed.append(stem)
+            continue
+
+        matches = sorted(media_dir.rglob(output_name), key=lambda p: p.stat().st_mtime)
+        if not matches:
+            print(
+                f"Error: manim reported success for {stem} but no output file {output_name!r} "
+                f"was found under {media_dir}/. Continuing with the remaining scenes.",
+                file=sys.stderr,
+            )
+            failed.append(stem)
+            continue
+        rendered_paths[stem] = matches[-1]
+
+    if failed:
+        print(
+            f"\n{len(failed)} scene(s) failed to render: {', '.join(failed)}. "
+            f"All other scenes were still rendered, but they will not be combined into one video.",
+            file=sys.stderr,
+        )
+        return 1
+
+    print(f"\nAll {len(scenes)} scene(s) rendered successfully. Concatenating into {args.output}...")
+    concat_list = wd / "cache_dir" / "_run_all_concat_list.txt"
+    concat_list.parent.mkdir(exist_ok=True)
+    with concat_list.open("w") as f:
+        for stem in scenes:
+            f.write(f"file '{rendered_paths[stem].resolve()}'\n")
+
+    result = subprocess.run(
+        ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(concat_list), "-c", "copy", args.output],
+        cwd=wd,
+    )
+    concat_list.unlink(missing_ok=True)
+    if result.returncode != 0:
+        print(f"Error: ffmpeg failed to concatenate the rendered videos (exit code {result.returncode}).", file=sys.stderr)
+        return 1
+
+    print(f"Combined video written to {wd / args.output}")
+    return 0
+
+
 def main():
     p = argparse.ArgumentParser(
         description=__doc__,
@@ -144,6 +232,22 @@ def main():
     )
     add_p.add_argument("--force", action="store_true", help="Overwrite existing .py file")
 
+    run_all_p = sub.add_parser(
+        "run_all",
+        help="Render every scene in scenes.txt in order, then concatenate them into one video",
+    )
+    run_all_p.add_argument(
+        "-q", "--quality",
+        choices=["l", "m", "h", "p", "k"],
+        default="l",
+        help="Manim render quality: l/m/h/p/k (default: l)",
+    )
+    run_all_p.add_argument(
+        "-o", "--output",
+        default="full_video.mp4",
+        help="Filename for the combined video (default: full_video.mp4)",
+    )
+
     args = p.parse_args()
 
     if args.command == "init":
@@ -152,6 +256,8 @@ def main():
         return cmd_list(args)
     elif args.command == "add":
         return cmd_add(args)
+    elif args.command == "run_all":
+        return cmd_run_all(args)
     else:
         p.print_help()
         return 1

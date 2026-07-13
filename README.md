@@ -14,7 +14,7 @@ It is currently actively under development.
 1. Create a new directory for your project.
 2. Type `uv init`
 3. Add this project: `uv add git+https://github.com/noah59049/stitch-tools.git`
-4. Type `stitch_tools init`. This creates the `podcasts/`, `raw_voiceovers/`, `transcripts/`, and `cache_dir/` directories, adds them (plus `media/`) to `.gitignore`, creates an empty `scenes.txt` (a list of scene stems, in order, for a future `stitch_tools run_all` command — see Limitations), and runs `uv add manim manim_voiceover` for you.
+4. Type `stitch_tools init`. This creates the `podcasts/`, `raw_voiceovers/`, `transcripts/`, and `cache_dir/` directories, adds them (plus `media/`) to `.gitignore`, creates an empty `scenes.txt` (a list of scene stems, in order, used by `stitch_tools run_all` — see below), and runs `uv add manim manim_voiceover` for you.
 
 ### Create a new scene
 Whenever you want to create a new voiceover scene, run the command
@@ -64,10 +64,20 @@ with self.voiceover("cosine a cosine b minus sine a sine b") as tracker:
 ```
 The transcript is not different between these. Therefore, it is possible to simply re-run `insert_silences` without re-recording.
 
+### Run all scenes and stitch them together
+Once your scenes are ready, run `stitch_tools run_all` to render every scene listed in `scenes.txt`, in order, and concatenate them into a single video.
+
+Each scene is rendered with `manim` in turn. If a scene fails to render, `run_all` prints the error, leaves the scenes already rendered in `media/` alone, and **keeps going** with the remaining scenes rather than stopping the whole run. However, if any scene failed, the videos are not concatenated into one file — you'll need to fix the failing scene(s) and re-run `stitch_tools run_all` before you get a combined video.
+
+If every scene renders successfully, the individual videos are concatenated (via `ffmpeg`) into one output file.
+
+Options:
+- `-q/--quality {l,m,h,p,k}` — manim render quality, same letters as manim's `-q` flag (default: `l`).
+- `-o/--output` — filename for the combined video (default: `full_video.mp4`).
+
 ## Note
 the `-s` command is short for `--stem`, and such, do not include any file extensions in the stem.
 
 ## Limitations / Future improvements planned
 - Both `extract_voiceovers` and `insert_silences` only recognize `with self.voiceover("text") as tracker:` as a valid voiceover line. Therefore, this doesn't work well if the voiceover text is calculated at runtime.
 - Detection of mathematical formulae are not very robust; for this reason, it is recommended to write out `cosine of a plus b` rather than `cos(a+b)`, for example.
-- I plan to create a `stitch_tools run_all` command that runs all the scenes that have been added with `stitch_tools add` in order, then concatenates them into one video. This will use `scenes.txt`.
