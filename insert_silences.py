@@ -218,13 +218,20 @@ def main():
         default="base",
         help="faster-whisper model size: tiny | base | small | medium | large-v3 (default base)",
     )
+    p.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Overwrite the most recent podcast instead of creating a new numbered one (only applies with -s/--stem)",
+    )
     args = p.parse_args()
 
     if args.stem:
         # Calculate input output and transcript from stem
         args.input = dir_config.path_to_raw_voiceover(args.stem)
         args.transcript = dir_config.path_to_manim_script(args.stem)
-        args.output = dir_config.path_to_podcast(args.stem, make_new = True)
+        args.output = dir_config.path_to_podcast(
+            args.stem, make_new=not args.overwrite, overwrite=args.overwrite
+        )
     if not args.input:
         args.input = input("Input audio file: ").strip()
     if not args.transcript:

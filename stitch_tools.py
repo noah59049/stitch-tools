@@ -121,6 +121,29 @@ def cmd_add(args):
         scenes_path.write_text("\n".join(scenes) + "\n")
         print(f"Added {stem} to {SCENES_FILE} (position {scenes.index(stem)})")
 
+def cmd_prune(args):
+    wd = Path.cwd()
+    if args.stem:
+        stems = [args.stem]
+    else:
+        stems = _read_scenes(wd / SCENES_FILE)
+        if not stems:
+            print(
+                f"No scenes found in {SCENES_FILE}. Pass a stem explicitly, "
+                f"e.g. 'stitch_tools prune my_scene'.",
+                file=sys.stderr,
+            )
+            return 1
+
+    for stem in stems:
+        n_podcasts = dir_config.prune_podcasts(stem)
+        n_raw = dir_config.prune_raw_voiceovers(stem)
+        if n_podcasts or n_raw:
+            print(f"{stem}: deleted {n_podcasts} old podcast(s), {n_raw} old raw voiceover(s)")
+        else:
+            print(f"{stem}: nothing to prune")
+
+
 def cmd_list(args):
     with open("scenes.txt") as file:
         print(file.read().strip())
@@ -232,6 +255,14 @@ def main():
     )
     add_p.add_argument("--force", action="store_true", help="Overwrite existing .py file")
 
+    prune_p = sub.add_parser(
+        "prune",
+        help="Delete old podcasts/raw voiceovers, keeping only the most recent (renumbered to 1)",
+    )
+    prune_p.add_argument(
+        "stem", nargs="?", help="File stem to prune (default: every scene in scenes.txt)"
+    )
+
     run_all_p = sub.add_parser(
         "run_all",
         help="Render every scene in scenes.txt in order, then concatenate them into one video",
@@ -256,6 +287,8 @@ def main():
         return cmd_list(args)
     elif args.command == "add":
         return cmd_add(args)
+    elif args.command == "prune":
+        return cmd_prune(args)
     elif args.command == "run_all":
         return cmd_run_all(args)
     else:
