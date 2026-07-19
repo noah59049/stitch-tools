@@ -13,7 +13,9 @@ It is currently actively under development.
 
 1. Create a new directory for your project.
 2. Type `uv init`
-3. Add this project: `uv add git+https://github.com/noah59049/stitch-tools.git`
+3. Add this project:
+   - From GitHub: `uv add git+https://github.com/noah59049/stitch-tools.git`
+   - From a local clone (e.g. if you're developing stitch-tools itself): clone it as a **sibling** of your video project (not nested inside it), then run `uv add --editable ../stitch-tools` (adjust the path to wherever you cloned it). This installs it in editable mode, so changes to your local clone take effect immediately without reinstalling.
 4. Type `stitch_tools init`. This creates the `podcasts/`, `raw_voiceovers/`, `transcripts/`, and `cache_dir/` directories, adds them (plus `media/`) to `.gitignore`, creates an empty `scenes.txt` (a list of scene stems, in order, used by `stitch_tools run_all` — see below), and runs `uv add manim manim_voiceover` for you.
 
 ### Create a new scene
