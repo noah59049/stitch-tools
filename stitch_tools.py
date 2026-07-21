@@ -144,6 +144,54 @@ def cmd_prune(args):
             print(f"{stem}: nothing to prune")
 
 
+def cmd_prune_all(args):
+    wd = Path.cwd()
+    stems = sorted(set(_read_scenes(wd / SCENES_FILE)))
+    if not stems:
+        print(
+            f"No scenes found in {SCENES_FILE}; refusing to run (would delete every "
+            f"podcast and raw voiceover). Add scenes first, or use 'stitch_tools prune <stem>'.",
+            file=sys.stderr,
+        )
+        return 1
+
+    for stem in stems:
+        n_podcasts = dir_config.prune_podcasts(stem)
+        n_raw = dir_config.prune_raw_voiceovers(stem)
+        if n_podcasts or n_raw:
+            print(f"{stem}: deleted {n_podcasts} old podcast(s), {n_raw} old raw voiceover(s)")
+        else:
+            print(f"{stem}: nothing to prune")
+
+    keep_podcast_names = set()
+    keep_raw_names = set()
+    for stem in stems:
+        for path in dir_config._podcast_paths(stem):
+            keep_podcast_names.add(Path(path).name)
+            keep_podcast_names.add(Path(dir_config._json_sidecar(path)).name)
+        for path in dir_config._raw_voiceover_paths(stem):
+            keep_raw_names.add(Path(path).name)
+
+    n_orphans = 0
+    for directory, keep_names in (
+        (wd / "podcasts", keep_podcast_names),
+        (wd / "raw_voiceovers", keep_raw_names),
+    ):
+        if not directory.exists():
+            continue
+        for path in directory.iterdir():
+            if path.is_file() and path.name not in keep_names:
+                path.unlink()
+                n_orphans += 1
+                print(f"Deleted orphaned file not in {SCENES_FILE}: {path.relative_to(wd)}")
+
+    print(
+        f"Pruned {len(stems)} scene(s) from {SCENES_FILE}; deleted {n_orphans} "
+        f"orphaned file(s) belonging to no tracked scene."
+    )
+    return 0
+
+
 def cmd_list(args):
     with open("scenes.txt") as file:
         print(file.read().strip())
@@ -263,6 +311,12 @@ def main():
         "stem", nargs="?", help="File stem to prune (default: every scene in scenes.txt)"
     )
 
+    sub.add_parser(
+        "prune_all",
+        help="Prune every scene in scenes.txt, and delete all podcasts/raw voiceovers "
+        "that don't belong to any scene in scenes.txt",
+    )
+
     run_all_p = sub.add_parser(
         "run_all",
         help="Render every scene in scenes.txt in order, then concatenate them into one video",
@@ -289,6 +343,8 @@ def main():
         return cmd_add(args)
     elif args.command == "prune":
         return cmd_prune(args)
+    elif args.command == "prune_all":
+        return cmd_prune_all(args)
     elif args.command == "run_all":
         return cmd_run_all(args)
     else:

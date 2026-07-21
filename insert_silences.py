@@ -230,7 +230,7 @@ def main():
         args.input = dir_config.path_to_raw_voiceover(args.stem)
         args.transcript = dir_config.path_to_manim_script(args.stem)
         args.output = dir_config.path_to_podcast(
-            args.stem, make_new=not args.overwrite, overwrite=args.overwrite
+            args.stem, mode="overwrite" if args.overwrite else "new"
         )
     if not args.input:
         args.input = input("Input audio file: ").strip()

@@ -57,7 +57,7 @@ def _podcast_paths(stem: str) -> list[str]:
     return paths
 
 
-def path_to_podcast(stem : str, make_new : bool = False, overwrite : bool = False):
+def path_to_podcast(stem : str, mode : str = "existing"):
     """Return the path to a podcast WAV file matching the given stem.
 
     Scans the podcasts/ directory for files named ``<stem>_podcast<N>.wav`` and
@@ -66,29 +66,30 @@ def path_to_podcast(stem : str, make_new : bool = False, overwrite : bool = Fals
     Args:
         stem: Base name prefix for the podcast files (e.g. ``"episode1"`` matches
               ``episode1_podcast1.wav``, ``episode1_podcast2.wav``, etc.).
-        make_new: If True, returns the lowest unoccupied number for podcasts. If False, returns
-          the highest contiguous occupied number for podcasts.
-        overwrite: If True, returns the highest existing podcast number (or 1 if none exist
-          yet), so callers overwrite the most recent podcast instead of creating a new one.
-          Mutually exclusive with make_new.
+        mode: One of:
+          - "existing" (default): the highest existing podcast number. Raises
+            FileNotFoundError if none exist yet.
+          - "new": one higher than the highest existing podcast number, for creating
+            a new podcast without overwriting prior ones.
+          - "overwrite": the highest existing podcast number, or 1 if none exist yet,
+            so callers overwrite the most recent podcast instead of creating a new one.
 
     Returns:
         Absolute path to the relevant podcast WAV file.
 
     Raises:
-        FileNotFoundError: If no matching file is found and neither make_new nor overwrite
-                           was set.
+        FileNotFoundError: If no matching file is found and mode is "existing".
+        ValueError: If mode is not one of "existing", "new", or "overwrite".
     """
-    if make_new and overwrite:
-        raise ValueError("make_new and overwrite are mutually exclusive")
+    if mode not in ("existing", "new", "overwrite"):
+        raise ValueError(f"Invalid mode {mode!r}; must be 'existing', 'new', or 'overwrite'")
 
     directory = get_abspath("podcasts/")
-    paths = _podcast_paths(stem)
-    best_number = len(paths)
-    if overwrite:
+    best_number = len(_podcast_paths(stem))
+    if mode == "new":
+        best_number += 1
+    elif mode == "overwrite":
         best_number = max(best_number, 1)
-    else:
-        best_number += make_new # If we're making a new podcast, we go 1 higher than the highest podcast number we found
 
     if best_number == 0:
         raise FileNotFoundError(f"Could not find podcast {directory + stem + "_podcast1.wav"}")
@@ -96,10 +97,17 @@ def path_to_podcast(stem : str, make_new : bool = False, overwrite : bool = Fals
         return directory + stem + f"_podcast{best_number}.wav"
 
 
-def prune_podcasts(stem: str) -> int:
-    """Delete all but the most recent podcast for stem, renumbering it to 1.
+def _json_sidecar(wav_path: str) -> str:
+    """Path to the JSON file StitcherService writes next to a podcast wav (see
+    manim_voiceover's ``_StitcherService.get_json_path``: splitext(source_path) + ".json")."""
+    return os.path.splitext(wav_path)[0] + ".json"
 
-    Returns the number of files deleted.
+
+def prune_podcasts(stem: str) -> int:
+    """Delete all but the most recent podcast for stem (plus its cached JSON sidecar),
+    renumbering the survivor to 1.
+
+    Returns the number of podcast files deleted.
     """
     paths = _podcast_paths(stem)
     if len(paths) <= 1:
@@ -107,9 +115,15 @@ def prune_podcasts(stem: str) -> int:
     keep = paths[-1]
     for path in paths[:-1]:
         os.remove(path)
+        json_path = _json_sidecar(path)
+        if os.path.exists(json_path):
+            os.remove(json_path)
     new_path = get_abspath("podcasts/") + stem + "_podcast1.wav"
     if keep != new_path:
         os.replace(keep, new_path)
+        keep_json = _json_sidecar(keep)
+        if os.path.exists(keep_json):
+            os.replace(keep_json, _json_sidecar(new_path))
     return len(paths) - 1
 
 
