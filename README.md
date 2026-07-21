@@ -50,6 +50,8 @@ Internally, `insert_silences` creates an audio file with silences inserted in th
 
 `insert_silences` also accepts `--silence` (seconds of silence to insert at each line break, default 5.0) and `--model` (faster-whisper model size: `tiny`, `base`, `small`, `medium`, or `large-v3`; default `base` — larger models are slower but more accurate). The first time you use a given model size, faster-whisper downloads it, which requires internet access and may take a while. For more options, type `insert_silences --help`.
 
+By default, every run of `insert_silences -s scene_name` creates a new numbered podcast (`scene_name_podcast1.wav`, `_podcast2.wav`, ...) rather than touching the old ones. If you don't need to keep every past take, pass `--overwrite` to have it overwrite the most recent podcast in place instead of creating a new one.
+
 It is not necessary to re-record if the transcript has not changed. For example, if you change
 ```
 with self.voiceover("sine of a plus b is sine a cosine b plus cosine a sine b") as tracker:
@@ -76,6 +78,12 @@ If every scene renders successfully, the individual videos are concatenated (via
 Options:
 - `-q/--quality {l,m,h,p,k}` — manim render quality, same letters as manim's `-q` flag (default: `l`).
 - `-o/--output` — filename for the combined video (default: `full_video.mp4`).
+
+### Saving disk space: pruning old podcasts and raw voiceovers
+Since every take is kept by default (or via `insert_silences` without `--overwrite`), `podcasts/` and `raw_voiceovers/` can accumulate a lot of old audio over time. Two commands help clean this up:
+
+- `stitch_tools prune [stem]` — for the given scene (or every scene in `scenes.txt` if no stem is given), deletes all but the most recent podcast and raw voiceover, renumbering the survivor back to `1`. Also cleans up the `.json` cache file that `StitcherService` writes next to each podcast wav.
+- `stitch_tools prune_all` — does the same for every scene in `scenes.txt`, and additionally **deletes every podcast and raw voiceover file that doesn't belong to any scene listed in `scenes.txt`** (e.g. leftovers from a scene you renamed or removed). Pass `--keep-orphans` to skip that second step and only prune old numbered files for tracked scenes. `prune_all` refuses to run if `scenes.txt` is empty, so it can't accidentally wipe everything.
 
 ## Note
 the `-s` command is short for `--stem`, and such, do not include any file extensions in the stem.
