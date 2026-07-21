@@ -163,6 +163,10 @@ def cmd_prune_all(args):
         else:
             print(f"{stem}: nothing to prune")
 
+    if args.keep_orphans:
+        print(f"Pruned {len(stems)} scene(s) from {SCENES_FILE}; left orphaned files alone (--keep-orphans).")
+        return 0
+
     keep_podcast_names = set()
     keep_raw_names = set()
     for stem in stems:
@@ -311,10 +315,16 @@ def main():
         "stem", nargs="?", help="File stem to prune (default: every scene in scenes.txt)"
     )
 
-    sub.add_parser(
+    prune_all_p = sub.add_parser(
         "prune_all",
         help="Prune every scene in scenes.txt, and delete all podcasts/raw voiceovers "
         "that don't belong to any scene in scenes.txt",
+    )
+    prune_all_p.add_argument(
+        "--keep-orphans",
+        action="store_true",
+        help="Don't delete podcasts/raw voiceovers that belong to no scene in scenes.txt "
+        "(still prunes old numbered files for tracked scenes)",
     )
 
     run_all_p = sub.add_parser(
