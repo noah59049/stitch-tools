@@ -18,6 +18,7 @@ command line, by setting the `STITCH_SILENT` environment variable, e.g.:
 """
 
 import os
+import re
 import sys
 import warnings
 from contextlib import contextmanager
@@ -25,6 +26,7 @@ from pathlib import Path
 from typing import Generator
 
 from manim_voiceover import VoiceoverScene
+from manim_voiceover.helper import remove_bookmarks
 from manim_voiceover.services.stitcher import _StitcherService as StitcherService
 from manim_voiceover.tracker import VoiceoverTracker
 
@@ -32,15 +34,44 @@ import dir_config
 
 SILENT_ENV_VAR = "STITCH_SILENT"
 
+# Rough narration pace used to estimate spoken duration when there's no audio to
+# measure (silenced voiceovers): ~150 words/minute at ~1.5 syllables/word.
+SYLLABLES_PER_SECOND = 3.75
+
+_VOWEL_GROUPS_RE = re.compile(r"[aeiouy]+")
+
 
 def _env_silent_flag_set() -> bool:
     return os.environ.get(SILENT_ENV_VAR, "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _count_syllables(word: str) -> int:
+    """Heuristic syllable count: one per vowel group, minus a silent trailing 'e'."""
+    word = re.sub(r"[^a-z]", "", word.lower())
+    if not word:
+        return 0
+    count = len(_VOWEL_GROUPS_RE.findall(word))
+    if word.endswith("e") and count > 1:
+        count -= 1
+    return max(count, 1)
+
+
+def _estimate_speech_duration(text: str) -> float:
+    """Estimates the spoken duration of `text`, in seconds, from a syllable heuristic."""
+    words = remove_bookmarks(text).split()
+    if not words:
+        return 0.0
+    syllables = sum(_count_syllables(word) for word in words)
+    return syllables / SYLLABLES_PER_SECOND
 
 
 class _SilentVoiceoverTracker:
     """Stand-in for VoiceoverTracker, yielded by `voiceover()` when silenced."""
 
     duration = 0.0
+
+    def __init__(self, text: str | None = None) -> None:
+        self.estimated_duration = _estimate_speech_duration(text) if text else 0.0
 
     def get_remaining_duration(self, buff: float = 0.0) -> float:
         return 0.0
@@ -66,6 +97,7 @@ class StitcherScene(VoiceoverScene):
     stem: str | None = None
     silent: bool = False
     _voiceover_unavailable: bool = False
+    _voiceover_depth: int = 0
 
     def construct(self) -> None:
         self._setup_stitcher_speech_service()
@@ -124,23 +156,51 @@ class StitcherScene(VoiceoverScene):
         ssml: str | None = None,
         **kwargs: object,
     ) -> Generator[VoiceoverTracker, None, None]:
-        if self._voiceovers_silenced():
-            tracker = _SilentVoiceoverTracker()
-            self.current_tracker = tracker
-            try:
+        if text is None and ssml is None:
+            raise ValueError("Please specify either a voiceover text or SSML string.")
+
+        self._voiceover_depth += 1
+        try:
+            if self._voiceovers_silenced():
+                tracker = _SilentVoiceoverTracker(text)
+                self.current_tracker = tracker
+                try:
+                    yield tracker
+                finally:
+                    self.wait_for_voiceover()
+                return
+
+            if self._voiceover_unavailable:
+                stem = self._resolve_stem()
+                raise FileNotFoundError(
+                    f"self.voiceover() was called, but no podcast audio was found for stem "
+                    f"{stem!r}. Record audio into raw_voiceovers/ and run "
+                    f"'insert_silences -s {stem}', or set self.silent = True to skip "
+                    f"voiceovers."
+                )
+
+            with super().voiceover(text=text, ssml=ssml, **kwargs) as tracker:
                 yield tracker
-            finally:
-                self.wait_for_voiceover()
-            return
+        finally:
+            self._voiceover_depth -= 1
 
-        if self._voiceover_unavailable:
-            stem = self._resolve_stem()
-            raise FileNotFoundError(
-                f"self.voiceover() was called, but no podcast audio was found for stem "
-                f"{stem!r}. Record audio into raw_voiceovers/ and run "
-                f"'insert_silences -s {stem}', or set self.silent = True to skip "
-                f"voiceovers."
+    def get_current_voiceover_duration(self) -> float:
+        """Returns the duration, in seconds, of the voiceover currently active inside a
+        `with self.voiceover(...):` block.
+
+        While voiceovers are silenced (`self.silent`, or the STITCH_SILENT env var),
+        there's no audio to measure, so the duration is estimated from the spoken text
+        using a syllable-count heuristic instead.
+
+        Raises:
+            RuntimeError: If called outside of a `with self.voiceover(...):` block.
+        """
+        if self._voiceover_depth == 0:
+            raise RuntimeError(
+                "get_current_voiceover_duration() was called outside of a "
+                "`with self.voiceover(...):` block."
             )
-
-        with super().voiceover(text=text, ssml=ssml, **kwargs) as tracker:
-            yield tracker
+        tracker = self.current_tracker
+        if isinstance(tracker, _SilentVoiceoverTracker):
+            return tracker.estimated_duration
+        return tracker.duration
