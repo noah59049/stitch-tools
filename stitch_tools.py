@@ -397,7 +397,7 @@ def main():
         return cmd_prune(args)
     elif args.command == "prune_all":
         return cmd_prune_all(args)
-    elif args.command == "run_all":
+    elif args.command == "run":
         return cmd_run(args)
     elif args.command == "run_all":
         return cmd_run_all(args)
