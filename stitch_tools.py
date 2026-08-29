@@ -216,17 +216,17 @@ def cmd_run(args):
         raise FileNotFoundError(f"{scene_file.name} not found.")
     
     t0 = time.time()
-    result = subprocess.run(
-        [
-            sys.executable, 
-            "-m", 
-            "manim", 
-            "render",
-            f"-q{args.quality}",
-            str(scene_file), 
-        ],
-        cwd=wd,
-    )
+    cmd = [
+        sys.executable,
+        "-m",
+        "manim",
+        "render",
+        f"-q{args.quality}",
+    ]
+    if args.preview:
+        cmd.append("-p")
+    cmd.append(str(scene_file))
+    result = subprocess.run(cmd, cwd=wd)
     t1 = time.time()
 
     print(f"Rendered scene {args.stem} in {int(t1 - t0)} seconds. Execution returned {result.returncode}")
@@ -388,6 +388,11 @@ def main():
         choices=["l", "m", "h", "p", "k"],
         default="l",
         help="Manim render quality: l/m/h/p/k (default: l)",
+    )
+    run_p.add_argument(
+        "-p", "--preview",
+        action="store_true",
+        help="Open the rendered video in a player when done (manim's -p)",
     )
 
     # --- run_all ---
