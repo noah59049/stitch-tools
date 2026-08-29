@@ -293,10 +293,13 @@ def main():
     )
     sub = p.add_subparsers(dest="command")
 
+    # --- init ---
     sub.add_parser("init", help="Set up directory structure for a new project")
 
+    # --- list ---
     sub.add_parser("list", help="List all the scenes added")
 
+    # --- add ---
     add_p = sub.add_parser("add", help="Add a new manim scene")
     add_p.add_argument("stem", help="File stem, e.g. 'global_max' if the file is called 'global_max.py'")
     add_p.add_argument("--class-name", help="Override class name (default: CamelCase of stem)")
@@ -307,6 +310,7 @@ def main():
     )
     add_p.add_argument("--force", action="store_true", help="Overwrite existing .py file")
 
+    # --- prune ---
     prune_p = sub.add_parser(
         "prune",
         help="Delete old podcasts/raw voiceovers, keeping only the most recent (renumbered to 1)",
@@ -315,6 +319,7 @@ def main():
         "stem", nargs="?", help="File stem to prune (default: every scene in scenes.txt)"
     )
 
+    # --- prune_all ---
     prune_all_p = sub.add_parser(
         "prune_all",
         help="Prune every scene in scenes.txt, and delete all podcasts/raw voiceovers "
@@ -327,6 +332,7 @@ def main():
         "(still prunes old numbered files for tracked scenes)",
     )
 
+    # --- run_all ---
     run_all_p = sub.add_parser(
         "run_all",
         help="Render every scene in scenes.txt in order, then concatenate them into one video",
