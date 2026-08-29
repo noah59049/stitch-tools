@@ -230,6 +230,7 @@ def cmd_run(args):
     t1 = time.time()
 
     print(f"Rendered scene {args.stem} in {int(t1 - t0)} seconds. Execution returned {result.returncode}")
+    return result.returncode
 
 def cmd_run_all(args):
     wd = Path.cwd()
@@ -308,6 +309,27 @@ def cmd_run_all(args):
     print(f"Combined video written to {wd / args.output}")
     return 0
 
+def cmd_run_open(args):
+    stem = args.stem
+    wd = Path.cwd()
+    scene_file = wd / f"{stem}.py"
+
+    if not scene_file.exists():
+        raise FileNotFoundError(f"{scene_file.name} not found.")
+    
+    class_name = _find_scene_class(scene_file, stem)
+
+    # TODO: Make this less brittle
+    # TODO: Make this work for scenes with just an image
+    # TODO: Make this work for different qualities than 480p15
+    # TODO: And maybe for different names than "media" and "videos"
+    video_path = wd / "media" / "videos" / stem / "480p15" / f"{class_name}.mp4"
+    
+    result = subprocess.run(
+        ["open", video_path]
+    )
+    return result.returncode
+
 
 def main():
     p = argparse.ArgumentParser(
@@ -385,6 +407,13 @@ def main():
         help="Filename for the combined video (default: full_video.mp4)",
     )
 
+    open_p = sub.add_parser(
+        "open",
+        help = "Open the video file for the given scene stem"
+    )
+
+    open_p.add_argument("stem", help="File stem, e.g. 'global_max' if the file is called 'global_max.py'")
+
     args = p.parse_args()
 
     if args.command == "init":
@@ -401,6 +430,8 @@ def main():
         return cmd_run(args)
     elif args.command == "run_all":
         return cmd_run_all(args)
+    elif args.command == "open":
+        return cmd_run_open(args)
     else:
         p.print_help()
         return 1
