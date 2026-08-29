@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+import time
 
 import dir_config
 
@@ -207,6 +208,28 @@ def _find_scene_class(scene_file: Path, stem: str) -> str:
         return match.group(1)
     return _stem_to_class_name(stem)
 
+def cmd_run(args):
+    wd = Path.cwd()
+    scene_file = wd / f"{args.stem}.py"
+
+    if not scene_file.exists():
+        raise FileNotFoundError(f"{scene_file.name} not found.")
+    
+    t0 = time.time()
+    result = subprocess.run(
+        [
+            sys.executable, 
+            "-m", 
+            "manim", 
+            "render",
+            f"-q{args.quality}",
+            str(scene_file), 
+        ],
+        cwd=wd,
+    )
+    t1 = time.time()
+
+    print(f"Rendered scene {args.stem} in {int(t1 - t0)} seconds. Execution returned {result.returncode}")
 
 def cmd_run_all(args):
     wd = Path.cwd()
@@ -332,6 +355,19 @@ def main():
         "(still prunes old numbered files for tracked scenes)",
     )
 
+    # --- run ---
+    run_p = sub.add_parser(
+        "run",
+        help="run the given scene"
+    )
+    run_p.add_argument("stem", help="File stem, e.g. 'global_max' if the file is called 'global_max.py'")
+    run_p.add_argument(
+        "-q", "--quality",
+        choices=["l", "m", "h", "p", "k"],
+        default="l",
+        help="Manim render quality: l/m/h/p/k (default: l)",
+    )
+
     # --- run_all ---
     run_all_p = sub.add_parser(
         "run_all",
@@ -361,6 +397,8 @@ def main():
         return cmd_prune(args)
     elif args.command == "prune_all":
         return cmd_prune_all(args)
+    elif args.command == "run_all":
+        return cmd_run(args)
     elif args.command == "run_all":
         return cmd_run_all(args)
     else:
