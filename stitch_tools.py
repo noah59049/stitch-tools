@@ -8,6 +8,7 @@ Commands:
 """
 
 import argparse
+import os
 import re
 import shutil
 import subprocess
@@ -226,7 +227,11 @@ def cmd_run(args):
     if args.preview:
         cmd.append("-p")
     cmd.append(str(scene_file))
-    result = subprocess.run(cmd, cwd=wd)
+
+    env = os.environ.copy()
+    if args.silent:
+        env["STITCH_SILENT"] = "1"
+    result = subprocess.run(cmd, cwd=wd, env=env)
     t1 = time.time()
 
     print(f"Rendered scene {args.stem} in {int(t1 - t0)} seconds. Execution returned {result.returncode}")
@@ -393,6 +398,11 @@ def main():
         "-p", "--preview",
         action="store_true",
         help="Open the rendered video in a player when done (manim's -p)",
+    )
+    run_p.add_argument(
+        "-s", "--silent",
+        action="store_true",
+        help="Silence voiceovers by setting STITCH_SILENT=1 for the render",
     )
 
     # --- run_all ---
