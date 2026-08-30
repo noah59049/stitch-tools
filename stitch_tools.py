@@ -210,8 +210,9 @@ def _find_scene_class(scene_file: Path, stem: str) -> str:
     return _stem_to_class_name(stem)
 
 def cmd_run(args):
+    stem = args.stem
     wd = Path.cwd()
-    scene_file = wd / f"{args.stem}.py"
+    scene_file = wd / f"{stem}.py"
 
     if not scene_file.exists():
         raise FileNotFoundError(f"{scene_file.name} not found.")
@@ -226,6 +227,10 @@ def cmd_run(args):
     ]
     if args.preview:
         cmd.append("-p")
+    
+    if args.silent:
+        cmd.append("-o")
+        cmd.append(_find_scene_class(scene_file = scene_file, stem = stem) + "Silent.mp4")
     cmd.append(str(scene_file))
 
     env = os.environ.copy()
