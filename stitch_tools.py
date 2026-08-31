@@ -333,7 +333,8 @@ def cmd_run_open(args):
     # TODO: Make this work for scenes with just an image
     # TODO: Make this work for different qualities than 480p15
     # TODO: And maybe for different names than "media" and "videos"
-    video_path = wd / "media" / "videos" / stem / "480p15" / f"{class_name}.mp4"
+    silent_addition = "Silent" if args.silent else ""
+    video_path = wd / "media" / "videos" / stem / "480p15" / f"{class_name}{silent_addition}.mp4"
     
     result = subprocess.run(
         ["open", video_path]
@@ -427,12 +428,17 @@ def main():
         help="Filename for the combined video (default: full_video.mp4)",
     )
 
+    # --- open ---
     open_p = sub.add_parser(
         "open",
         help = "Open the video file for the given scene stem"
     )
-
     open_p.add_argument("stem", help="File stem, e.g. 'global_max' if the file is called 'global_max.py'")
+    open_p.add_argument(
+        "-s", "--silent",
+        action="store_true",
+        help="Open the silent version of the scene",
+    )
 
     args = p.parse_args()
 
