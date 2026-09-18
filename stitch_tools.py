@@ -249,6 +249,8 @@ def cmd_run_all(args):
         print(f"No scenes found in {SCENES_FILE}. Add one with 'stitch_tools add <stem>'.", file=sys.stderr)
         return 1
 
+    output = args.output or f"FullVideo{'Silent' if args.silent else ''}.mp4"
+
     media_dir = wd / "media"
     rendered_paths: dict[str, Path] = {}
     failed: list[str] = []
@@ -305,7 +307,7 @@ def cmd_run_all(args):
         )
         return 1
 
-    print(f"\nAll {len(scenes)} scene(s) rendered successfully. Concatenating into {args.output}...")
+    print(f"\nAll {len(scenes)} scene(s) rendered successfully. Concatenating into {output}...")
     concat_list = wd / "cache_dir" / "_run_all_concat_list.txt"
     concat_list.parent.mkdir(exist_ok=True)
     with concat_list.open("w") as f:
@@ -313,7 +315,7 @@ def cmd_run_all(args):
             f.write(f"file '{rendered_paths[stem].resolve()}'\n")
 
     result = subprocess.run(
-        ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(concat_list), "-c", "copy", wd / "media" / "videos" / args.output],
+        ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(concat_list), "-c", "copy", wd / "media" / "videos" / output],
         cwd=wd,
     )
     concat_list.unlink(missing_ok=True)
@@ -321,7 +323,7 @@ def cmd_run_all(args):
         print(f"Error: ffmpeg failed to concatenate the rendered videos (exit code {result.returncode}).", file=sys.stderr)
         return 1
 
-    print(f"Combined video written to {wd / args.output}")
+    print(f"Combined video written to {wd / 'media' / 'videos' / output}")
     return 0
 
 def cmd_run_open(args):
@@ -429,8 +431,9 @@ def main():
     )
     run_all_p.add_argument(
         "-o", "--output",
-        default="FullVideo.mp4",
-        help="Filename for the combined video (default: FullVideo.mp4)",
+        default=None,
+        help="Filename for the combined video (default: FullVideo.mp4, or "
+        "FullVideoSilent.mp4 with -s)",
     )
     run_all_p.add_argument(
         "-s", "--silent",
