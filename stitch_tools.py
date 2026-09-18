@@ -261,8 +261,12 @@ def cmd_run_all(args):
             continue
 
         class_name = _find_scene_class(scene_file, stem)
-        output_name = f"{stem}.mp4"
+        silent_addition = "Silent" if args.silent else ""
+        output_name = f"{stem}{silent_addition}.mp4"
         print(f"\n=== Rendering {stem} ({class_name}) ===")
+        env = os.environ.copy()
+        if args.silent:
+            env["STITCH_SILENT"] = "1"
         result = subprocess.run(
             [
                 sys.executable, "-m", "manim", "render",
@@ -271,6 +275,7 @@ def cmd_run_all(args):
                 str(scene_file), class_name,
             ],
             cwd=wd,
+            env=env,
         )
         if result.returncode != 0:
             print(
@@ -308,7 +313,7 @@ def cmd_run_all(args):
             f.write(f"file '{rendered_paths[stem].resolve()}'\n")
 
     result = subprocess.run(
-        ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(concat_list), "-c", "copy", args.output],
+        ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(concat_list), "-c", "copy", wd / "media" / "videos" / args.output],
         cwd=wd,
     )
     concat_list.unlink(missing_ok=True)
@@ -424,8 +429,13 @@ def main():
     )
     run_all_p.add_argument(
         "-o", "--output",
-        default="full_video.mp4",
+        default="FullVideo.mp4",
         help="Filename for the combined video (default: full_video.mp4)",
+    )
+    run_all_p.add_argument(
+        "-s", "--silent",
+        action="store_true",
+        help="Silence voiceovers by setting STITCH_SILENT=1 for the render",
     )
 
     # --- open ---
