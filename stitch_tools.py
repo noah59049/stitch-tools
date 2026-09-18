@@ -430,7 +430,7 @@ def main():
     run_all_p.add_argument(
         "-o", "--output",
         default="FullVideo.mp4",
-        help="Filename for the combined video (default: full_video.mp4)",
+        help="Filename for the combined video (default: FullVideo.mp4)",
     )
     run_all_p.add_argument(
         "-s", "--silent",
