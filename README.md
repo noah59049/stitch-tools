@@ -26,6 +26,9 @@ The generated file subclasses `StitcherScene` (from `stitcher_scene.py`) instead
 
 If no podcast audio exists yet for the scene, `StitcherScene` doesn't error at startup — it prints a warning and leaves the speech service unset, so you can keep writing/running the scene before you've recorded anything. The error is only raised once you actually call `self.voiceover(...)`.
 
+### Deprecate a scene
+To retire a scene without deleting it, run `stitch_tools deprecate name_of_scene`. This removes `name_of_scene` from `scenes.txt` and moves `name_of_scene.py` into a `deprecated/` directory (created if needed). If only one of those applies (e.g. the file exists but isn't in `scenes.txt`), it does that part and warns about the other; if neither applies, it prints an error. It refuses to overwrite an existing file in `deprecated/`. `deprecated/` is not gitignored, so deprecated scenes stay in version control.
+
 #### Silencing voiceovers
 You can disable voiceovers entirely (no audio, and no error even if the podcast file is missing) in two ways:
 - In code: set `silent = True` on the scene class, or `self.silent = True` before calling `self.voiceover(...)`.

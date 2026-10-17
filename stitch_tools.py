@@ -5,6 +5,7 @@ stitch_tools — Project scaffolding for manim+voiceover videos.
 Commands:
     stitch_tools init           Set up directory structure for a new video project
     stitch_tools add <stem>     Add a new manim scene file
+    stitch_tools deprecate <stem>  Remove a scene from scenes.txt and move it to deprecated/
 """
 
 import argparse
@@ -19,6 +20,7 @@ import time
 import dir_config
 
 SCENES_FILE = "scenes.txt"
+DEPRECATED_DIR = "deprecated"
 
 GITIGNORE_ENTRIES = ["podcasts/", "raw_voiceovers/", "transcripts/", "cache_dir/", "media/"]
 
@@ -122,6 +124,39 @@ def cmd_add(args):
             scenes.insert(args.position, stem)
         scenes_path.write_text("\n".join(scenes) + "\n")
         print(f"Added {stem} to {SCENES_FILE} (position {scenes.index(stem)})")
+
+def cmd_deprecate(args):
+    wd = Path.cwd()
+    stem = args.stem
+    scene_file = wd / f"{stem}.py"
+    scenes_path = wd / SCENES_FILE
+    scenes = _read_scenes(scenes_path)
+
+    in_scenes = stem in scenes
+    file_exists = scene_file.exists()
+    if not in_scenes and not file_exists:
+        print(f"Error: {scene_file.name} does not exist and {stem} is not in {SCENES_FILE}.", file=sys.stderr)
+        return 1
+
+    if file_exists:
+        deprecated_dir = wd / DEPRECATED_DIR
+        dest = deprecated_dir / scene_file.name
+        if dest.exists():
+            print(f"Error: {dest.relative_to(wd)} already exists; not overwriting it.", file=sys.stderr)
+            return 1
+        deprecated_dir.mkdir(exist_ok=True)
+        scene_file.rename(dest)
+        print(f"Moved {scene_file.name} to {dest.relative_to(wd)}")
+    else:
+        print(f"Warning: {scene_file.name} not found; nothing to move.", file=sys.stderr)
+
+    if in_scenes:
+        scenes = [s for s in scenes if s != stem]
+        scenes_path.write_text("".join(s + "\n" for s in scenes))
+        print(f"Removed {stem} from {SCENES_FILE}")
+    else:
+        print(f"Warning: {stem} was not in {SCENES_FILE}.", file=sys.stderr)
+    return 0
 
 def cmd_prune(args):
     wd = Path.cwd()
@@ -373,6 +408,13 @@ def main():
     )
     add_p.add_argument("--force", action="store_true", help="Overwrite existing .py file")
 
+    # --- deprecate ---
+    deprecate_p = sub.add_parser(
+        "deprecate",
+        help="Remove a scene from scenes.txt and move its .py file to deprecated/",
+    )
+    deprecate_p.add_argument("stem", help="File stem, e.g. 'global_max' if the file is called 'global_max.py'")
+
     # --- prune ---
     prune_p = sub.add_parser(
         "prune",
@@ -461,6 +503,8 @@ def main():
         return cmd_list(args)
     elif args.command == "add":
         return cmd_add(args)
+    elif args.command == "deprecate":
+        return cmd_deprecate(args)
     elif args.command == "prune":
         return cmd_prune(args)
     elif args.command == "prune_all":
